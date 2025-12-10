@@ -1,0 +1,8 @@
+{
+  "name": "The Silent Orchestra",
+  "description": "A real-time, AI-conducted air instrument band experience using computer vision.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
