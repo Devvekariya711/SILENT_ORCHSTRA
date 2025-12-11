@@ -19,6 +19,7 @@ import { aiAccompaniment } from '../utils/aiAccompaniment';
 import PlayerList from './PlayerList';
 import TutorialHUD from './TutorialHUD';
 import InstrumentGuide from './InstrumentGuide';
+import MusicTutorial from './MusicTutorial';
 
 // Declare MediaPipe globals (loaded via CDN)
 declare global {
@@ -51,6 +52,23 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
     const [showTutorial, setShowTutorial] = useState(false);
     const [lastGesture, setLastGesture] = useState<string>('');
     const [handsDetected, setHandsDetected] = useState<number>(0);
+
+    // Interactive Music Tutorial for first-time users
+    const [showMusicTutorial, setShowMusicTutorial] = useState(() => {
+        // Check if user has completed the tutorial for this instrument before
+        const key = `tutorial_completed_${role}`;
+        return localStorage.getItem(key) !== 'true';
+    });
+
+    const completeTutorial = () => {
+        localStorage.setItem(`tutorial_completed_${role}`, 'true');
+        setShowMusicTutorial(false);
+    };
+
+    const skipTutorial = () => {
+        setShowMusicTutorial(false);
+        // Don't save - will show again next time
+    };
 
     // Mock player data
     const [players, setPlayers] = useState([
@@ -440,6 +458,15 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                 </svg>
                 <span className="text-xs font-bold tracking-widest uppercase">Leave Stage</span>
             </button>
+
+            {/* Interactive Music Tutorial for First-Time Users */}
+            {showMusicTutorial && (
+                <MusicTutorial
+                    instrument={role}
+                    onComplete={completeTutorial}
+                    onSkip={skipTutorial}
+                />
+            )}
 
             {/* Hands Detected Indicator */}
             <div className="absolute top-4 right-4 z-50 flex items-center space-x-2 bg-black/40 px-3 py-2 rounded-full backdrop-blur border border-white/10">
