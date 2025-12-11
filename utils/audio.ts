@@ -15,8 +15,8 @@ const CHORDS: Record<string, string[][]> = {
     'minor': [['C3', 'Eb3', 'G3'], ['F3', 'Ab3', 'C4'], ['G3', 'Bb3', 'D4'], ['Ab3', 'C4', 'Eb4']],
 };
 
-// Default volume: -50dB maps to ~10 on 0-100 scale
-const DEFAULT_VOLUME = -50;
+// Default volume: -12dB = comfortable listening level (matches 50% on slider)
+const DEFAULT_VOLUME = -12;
 
 class AudioEngine {
     // Synths - Original 4
@@ -67,8 +67,16 @@ class AudioEngine {
         if (this.isReady) return;
         await Tone.start();
 
-        // Master Effects
-        this.reverb = new Tone.Reverb(2).toDestination();
+        // Safety chain: Limiter prevents clipping, EQ rolls off harsh highs
+        const limiter = new Tone.Limiter(-3).toDestination(); // Prevent peaks above -3dB
+        const highFreqFilter = new Tone.Filter({
+            type: 'lowpass',
+            frequency: 12000, // Roll off above 12kHz to protect ears
+            rolloff: -12
+        }).connect(limiter);
+
+        // Master Effects - reverb feeds into safety chain
+        this.reverb = new Tone.Reverb(2).connect(highFreqFilter);
 
         // Initialize Volume Nodes
         this.volumeNodes = {

@@ -12,8 +12,8 @@ export interface DrumHitEvent {
 
 export class DrumGestureHandler {
     private lastHitTime = { left: 0, right: 0 };
-    private readonly HIT_COOLDOWN = 80; // ms - prevent double-triggering
-    private readonly VELOCITY_THRESHOLD = 2.0; // Minimum downward velocity for hit
+    private readonly HIT_COOLDOWN = 60; // ms - reduced for faster rolls
+    private readonly VELOCITY_THRESHOLD = 1.2; // Lowered for better sensitivity
 
     public process(data: TwoHandGestureData): DrumHitEvent[] {
         const events: DrumHitEvent[] = [];
@@ -79,7 +79,7 @@ export class PianoGestureHandler {
     private activeKeys = new Set<string>();
     private readonly KEYS_PER_HAND = 6; // Each hand covers 6 keys (half octave)
     private readonly TAP_THRESHOLD = 0.15; // Y distance considered a "tap"
-    private readonly TAP_VELOCITY_THRESHOLD = 0.8; // Finger velocity threshold for tap detection
+    private readonly TAP_VELOCITY_THRESHOLD = 0.5; // Lowered for better sensitivity
 
     public process(data: TwoHandGestureData): PianoKeyEvent[] {
         const events: PianoKeyEvent[] = [];
@@ -172,8 +172,8 @@ export interface GuitarStrumEvent {
 
 export class GuitarGestureHandler {
     private lastStrumTime = 0;
-    private readonly STRUM_COOLDOWN = 150; // ms
-    private readonly STRUM_THRESHOLD = 1.5; // Horizontal velocity threshold
+    private readonly STRUM_COOLDOWN = 100; // Reduced for faster strumming
+    private readonly STRUM_THRESHOLD = 1.0; // Lowered for better sensitivity
 
     // Track which hand is which
     private fretHand: 'left' | 'right' | null = null;
@@ -350,7 +350,7 @@ export interface StringsEvent {
 }
 
 export class StringsGestureHandler {
-    private readonly SWELL_THRESHOLD = 0.8;
+    private readonly SWELL_THRESHOLD = 0.5; // Lowered for better sensitivity
     private lastIntensity = 0;
     private isPlaying = false;
 

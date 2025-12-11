@@ -7,16 +7,22 @@ interface SettingsMenuProps {
   onClose: () => void;
 }
 
-// Convert 0-100 slider to -60 to 0 dB
+// Convert 0-100 slider to dB (logarithmic perception)
+// 0 = -40dB (nearly silent), 50 = -12dB (comfortable), 100 = 0dB (max)
 const sliderToDb = (value: number): number => {
-  // 0 = -60dB (silent), 100 = 0dB (max)
-  return (value / 100) * 60 - 60;
+  if (value === 0) return -60; // Mute
+  // Logarithmic mapping for natural volume perception
+  // At 50%, output -12dB which is a comfortable listening level
+  const normalized = value / 100;
+  return -40 * Math.pow(1 - normalized, 2); // Quadratic curve: 0=-40, 50=-10, 100=0
 };
 
-// Convert -60 to 0 dB to 0-100 slider  
+// Convert dB to 0-100 slider (inverse of above)
 const dbToSlider = (db: number): number => {
-  // -60dB = 0, 0dB = 100
-  return ((db + 60) / 60) * 100;
+  if (db <= -40) return 0;
+  if (db >= 0) return 100;
+  // Inverse of quadratic: value = 100 * (1 - sqrt(-db/40))
+  return 100 * (1 - Math.sqrt(-db / 40));
 };
 
 const SettingsMenu: React.FC<SettingsMenuProps> = ({ onClose }) => {

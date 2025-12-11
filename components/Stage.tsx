@@ -15,6 +15,7 @@ import {
     PadsEvent
 } from '../utils/instrumentGestures';
 import { updateSpatialAudio } from '../utils/spatialAudio';
+import { aiAccompaniment } from '../utils/aiAccompaniment';
 import PlayerList from './PlayerList';
 import TutorialHUD from './TutorialHUD';
 import InstrumentGuide from './InstrumentGuide';
@@ -66,6 +67,15 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
         };
     }, []);
 
+    // Initialize AI Accompaniment
+    useEffect(() => {
+        aiAccompaniment.setRole(role);
+        aiAccompaniment.start();
+        return () => {
+            aiAccompaniment.stop();
+        };
+    }, [role]);
+
     // --- WEBSOCKET CONNECTION ---
     useEffect(() => {
         let ws: WebSocket;
@@ -114,6 +124,11 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
         if (data.leftHand) handCount++;
         if (data.rightHand) handCount++;
         setHandsDetected(handCount);
+
+        // Mark user activity for AI accompaniment (pauses AI when user is playing)
+        if (handCount > 0) {
+            aiAccompaniment.markUserActivity();
+        }
 
         // Route to instrument-specific handler
         switch (role) {
@@ -206,7 +221,7 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
         const indexFinger = hand.fingers.index;
         const fingerVelocityY = Math.abs(indexFinger.velocity.y);
 
-        if (fingerVelocityY > 1.5) {
+        if (fingerVelocityY > 1.0) { // Lowered for better sensitivity
             const velocity = Math.min(1, fingerVelocityY / 4);
             const yPos = indexFinger.tip.y;
             const xPos = indexFinger.tip.x;
