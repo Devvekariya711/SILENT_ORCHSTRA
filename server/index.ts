@@ -5,7 +5,7 @@ import { PlayerState, ConductorState, InstrumentRole, WSMessage } from '../types
 
 // --- CONFIG ---
 const PORT = 8080;
-const GEMINI_API_KEY = process.env.API_KEY || ''; 
+const GEMINI_API_KEY = process.env.API_KEY || '';
 
 // --- SERVER STATE ---
 interface Client {
@@ -73,8 +73,8 @@ wss.on('connection', (ws: WebSocket) => {
             id: currentRoomId,
             clients: new Map(),
             playerStates: new Map(),
-            conductorState: { 
-              tempo: 120, key: 'C Major', scale: 'major', mood: 'Waiting...', instruction: 'Let\'s Play!' 
+            conductorState: {
+              tempo: 120, key: 'C Major', scale: 'major', mood: 'Waiting...', instruction: 'Let\'s Play!'
             }
           });
           console.log(`Room created: ${currentRoomId}`);
@@ -82,11 +82,11 @@ wss.on('connection', (ws: WebSocket) => {
 
         const room = rooms.get(currentRoomId)!;
         room.clients.set(clientId, { ws, id: clientId, role, lastActivity: Date.now() });
-        
+
         // Send initial conductor state to new joiner
         ws.send(JSON.stringify({
-            type: 'CONDUCTOR_UPDATE',
-            data: room.conductorState
+          type: 'CONDUCTOR_UPDATE',
+          data: room.conductorState
         }));
 
         console.log(`Client ${clientId} joined Room ${currentRoomId} as ${role}`);
@@ -96,26 +96,26 @@ wss.on('connection', (ws: WebSocket) => {
       if (msg.type === 'UPDATE' && currentRoomId && msg.data) {
         const room = rooms.get(currentRoomId);
         if (room) {
-           // Store state
-           room.playerStates.set(clientId, msg.data);
-           const client = room.clients.get(clientId);
-           if (client) {
-             client.lastActivity = Date.now();
-             client.role = msg.data.role; // Update role if changed
-           }
+          // Store state
+          room.playerStates.set(clientId, msg.data);
+          const client = room.clients.get(clientId);
+          if (client) {
+            client.lastActivity = Date.now();
+            client.role = msg.data.role; // Update role if changed
+          }
 
-           // BROADCAST TO OTHERS IN ROOM (Peer-to-Peer Relay)
-           const broadcastMsg = JSON.stringify({
-             type: 'UPDATE', // Use UPDATE type so clients can treat it as remote player data
-             roomId: currentRoomId,
-             data: { ...msg.data, clientId } // Append clientId to identify source
-           });
+          // BROADCAST TO OTHERS IN ROOM (Peer-to-Peer Relay)
+          const broadcastMsg = JSON.stringify({
+            type: 'UPDATE', // Use UPDATE type so clients can treat it as remote player data
+            roomId: currentRoomId,
+            data: { ...msg.data, clientId } // Append clientId to identify source
+          });
 
-           room.clients.forEach((c) => {
-               if (c.id !== clientId && c.ws.readyState === WebSocket.OPEN) {
-                   c.ws.send(broadcastMsg);
-               }
-           });
+          room.clients.forEach((c) => {
+            if (c.id !== clientId && c.ws.readyState === WebSocket.OPEN) {
+              c.ws.send(broadcastMsg);
+            }
+          });
         }
       }
 
@@ -129,7 +129,7 @@ wss.on('connection', (ws: WebSocket) => {
       const room = rooms.get(currentRoomId)!;
       room.clients.delete(clientId);
       room.playerStates.delete(clientId);
-      
+
       console.log(`Client ${clientId} disconnected from Room ${currentRoomId}`);
 
       // Cleanup empty rooms
@@ -145,7 +145,7 @@ console.log(`Orchestra Server running on port ${PORT}`);
 
 // --- THE AI CONDUCTOR LOOP (PER ROOM) ---
 setInterval(async () => {
-  
+
   for (const [roomId, room] of rooms.entries()) {
     if (room.clients.size === 0) continue;
 
@@ -167,13 +167,13 @@ setInterval(async () => {
     // Skip AI call if band is completely silent to save API quota
     // But if state is "Waiting", do nothing.
     if (activeCount === 0) {
-       if (room.conductorState.mood !== "Waiting for input...") {
-          room.conductorState.mood = "Waiting for input...";
-          room.conductorState.instruction = "Start playing to wake the AI";
-          const resetMsg = JSON.stringify({ type: 'CONDUCTOR_UPDATE', data: room.conductorState });
-          room.clients.forEach(c => c.ws.send(resetMsg));
-       }
-       continue;
+      if (room.conductorState.mood !== "Waiting for input...") {
+        room.conductorState.mood = "Waiting for input...";
+        room.conductorState.instruction = "Start playing to wake the AI";
+        const resetMsg = JSON.stringify({ type: 'CONDUCTOR_UPDATE', data: room.conductorState });
+        room.clients.forEach(c => c.ws.send(resetMsg));
+      }
+      continue;
     }
 
     const avgVelocity = totalVelocity / activeCount;
@@ -182,19 +182,19 @@ setInterval(async () => {
     // 2. Consult Gemini
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: description,
+        model: 'gemini-2.0-flash-exp' as string,
+        contents: description as string,
         config: {
           systemInstruction: SYSTEM_PROMPT,
           responseMimeType: "application/json"
         }
       });
 
-      const jsonText = response.text;
-      if (jsonText) {
+      const jsonText = response.text || '{}';
+      if (jsonText && jsonText !== '{}') {
         const conductorState: ConductorState = JSON.parse(jsonText);
         room.conductorState = conductorState; // Update local state
-        
+
         console.log(`Room ${roomId} Instruction:`, conductorState.instruction);
 
         // 3. Broadcast to Room

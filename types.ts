@@ -5,6 +5,9 @@ export enum InstrumentRole {
   GUITAR = 'GUITAR',
   PIANO = 'PIANO',
   BASS = 'BASS',
+  THEREMIN = 'THEREMIN',
+  STRINGS = 'STRINGS',
+  PADS = 'PADS',
   NONE = 'NONE'
 }
 
@@ -44,9 +47,24 @@ export interface HandLandmark {
   z: number;
 }
 
-// Audio Settings
-// Added 'organ', 'chiptune', 'vibraphone' to supported presets
-export type InstrumentPreset = 'acoustic' | 'electric' | 'electronic' | 'synth' | 'organ' | 'chiptune' | 'vibraphone';
+// Audio Settings - All available presets for all instruments
+export type InstrumentPreset =
+  // Common
+  | 'acoustic' | 'electric' | 'electronic' | 'synth'
+  // Piano  
+  | 'organ' | 'chiptune' | 'vibraphone'
+  // Drums
+  | 'jazz' | 'rock' | 'latin' | 'lofi'
+  // Guitar
+  | 'distorted' | 'clean' | 'flamenco'
+  // Bass
+  | 'slap' | 'dubstep' | 'upright'
+  // Theremin
+  | 'classic' | 'eerie' | 'scifi' | 'warm' | 'bright' | 'alien'
+  // Strings
+  | 'orchestra' | 'chamber' | 'solo' | 'pizzicato' | 'cinematic'
+  // Pads
+  | 'ambient' | 'ethereal' | 'dark' | 'crystal';
 
 export interface AudioSettings {
   volumes: Record<InstrumentRole, number>; // dB value (-60 to 0)
