@@ -20,6 +20,7 @@ import PlayerList from './PlayerList';
 import TutorialHUD from './TutorialHUD';
 import InstrumentGuide from './InstrumentGuide';
 import MusicTutorial from './MusicTutorial';
+import GhostHandGuide from './GhostHandGuide';
 
 // Declare MediaPipe globals (loaded via CDN)
 declare global {
@@ -74,6 +75,20 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
     const [players, setPlayers] = useState([
         { id: '1', name: 'You', role, isPlaying: false, volume: 0, color: '#22d3ee' }
     ]);
+
+    // Ghost Hand Guide - shows by default for new users, can be toggled
+    const [showGhostGuide, setShowGhostGuide] = useState(() => {
+        // Show ghost guide for first-time users
+        const key = `ghost_guide_seen_${role}`;
+        return localStorage.getItem(key) !== 'true';
+    });
+
+    const toggleGhostGuide = () => {
+        setShowGhostGuide(prev => !prev);
+    };
+
+    // Canvas dimensions for ghost overlay
+    const [canvasDimensions, setCanvasDimensions] = useState({ width: 640, height: 480 });
 
     const socketRef = useRef<WebSocket | null>(null);
 
@@ -515,6 +530,24 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                             <span className="text-4xl font-bold text-white tracking-widest border-4 border-white p-2 transform -rotate-12">MUTE</span>
                         </div>
                     </div>
+
+                    {/* Ghost Hand Guide Overlay - AI plays melody, user follows the ghost */}
+                    {showGhostGuide && (
+                        <GhostHandGuide
+                            instrument={role}
+                            isActive={showGhostGuide && !showMusicTutorial}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
+                    )}
+
+                    {/* Ghost Guide Toggle Button */}
+                    <button
+                        onClick={toggleGhostGuide}
+                        className="absolute bottom-4 right-4 z-50 bg-black/60 hover:bg-black/80 text-white px-3 py-2 rounded-full backdrop-blur border border-cyan-500/30 text-xs font-bold"
+                    >
+                        {showGhostGuide ? '👻 Hide Guide' : '👻 Show Guide'}
+                    </button>
 
                     {/* Instrument-specific Visual Zones */}
                     {role === InstrumentRole.DRUMS && (
