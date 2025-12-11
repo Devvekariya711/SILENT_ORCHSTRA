@@ -45,7 +45,8 @@ export interface HandLandmark {
 }
 
 // Audio Settings
-export type InstrumentPreset = 'acoustic' | 'electric' | 'electronic' | 'synth';
+// Added 'organ', 'chiptune', 'vibraphone' to supported presets
+export type InstrumentPreset = 'acoustic' | 'electric' | 'electronic' | 'synth' | 'organ' | 'chiptune' | 'vibraphone';
 
 export interface AudioSettings {
   volumes: Record<InstrumentRole, number>; // dB value (-60 to 0)

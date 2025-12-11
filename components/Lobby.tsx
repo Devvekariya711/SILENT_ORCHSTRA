@@ -10,6 +10,7 @@ const Lobby: React.FC<LobbyProps> = ({ onSelect }) => {
   const [roomId, setRoomId] = useState('');
   const [selectedRole, setSelectedRole] = useState<InstrumentRole | null>(null);
   const [step, setStep] = useState<'ROOM' | 'INSTRUMENT'>('ROOM');
+  const [error, setError] = useState<string | null>(null);
 
   const instruments = [
     { id: InstrumentRole.DRUMS, label: 'AIR DRUMS', color: 'border-red-500 text-red-400', desc: 'Punch the air to trigger kicks and snares.' },
@@ -22,13 +23,27 @@ const Lobby: React.FC<LobbyProps> = ({ onSelect }) => {
     // Generate random 4-char room code client-side for simplicity
     const newRoomId = Math.random().toString(36).substring(2, 6).toUpperCase();
     setRoomId(newRoomId);
+    setError(null);
     setStep('INSTRUMENT');
   };
 
   const handleEnterRoom = () => {
-      if (roomId.trim().length > 0) {
-          setStep('INSTRUMENT');
+      const code = roomId.trim().toUpperCase();
+      
+      // Basic Validation
+      if (code.length < 4) {
+          setError("Invalid Code (Min 4 chars)");
+          return;
       }
+      
+      // Alphanumeric Regex
+      if (!/^[A-Z0-9]+$/.test(code)) {
+           setError("Code must be alphanumeric");
+           return;
+      }
+
+      setError(null);
+      setStep('INSTRUMENT');
   };
 
   const handleStartGame = () => {
@@ -62,11 +77,17 @@ const Lobby: React.FC<LobbyProps> = ({ onSelect }) => {
                             type="text" 
                             placeholder="CODE" 
                             value={roomId}
-                            onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                            onChange={(e) => {
+                                setRoomId(e.target.value.toUpperCase());
+                                setError(null);
+                            }}
                             maxLength={6}
                             onKeyDown={(e) => e.key === 'Enter' && handleEnterRoom()}
-                            className="w-full bg-black border border-white/20 rounded-lg px-4 py-4 text-white placeholder-gray-700 text-center tracking-[0.3em] font-bold text-2xl focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(34,211,238,0.3)] transition-all"
+                            className={`w-full bg-black border ${error ? 'border-red-500 text-red-500' : 'border-white/20 text-white'} rounded-lg px-4 py-4 placeholder-gray-700 text-center tracking-[0.3em] font-bold text-2xl focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(34,211,238,0.3)] transition-all`}
                         />
+                        {error && (
+                            <p className="text-red-500 text-[10px] uppercase tracking-widest mt-2 text-center animate-pulse font-bold">{error}</p>
+                        )}
                          <button 
                             onClick={handleEnterRoom}
                             disabled={roomId.length === 0}
@@ -101,7 +122,7 @@ const Lobby: React.FC<LobbyProps> = ({ onSelect }) => {
       {step === 'INSTRUMENT' && (
           <>
             {/* Instrument Selection Container (Blue Border Box) */}
-            <div className="w-full max-w-5xl border border-blue-500/30 rounded-3xl p-2 relative mt-4">
+            <div className="w-full max-w-5xl border border-blue-500/30 rounded-3xl p-2 relative mt-4 animate-fadeIn">
                 {/* Floating Header */}
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#050505] px-6 text-white font-bold tracking-[0.2em] uppercase flex items-center whitespace-nowrap z-10">
                     <span className="w-8 h-0.5 bg-cyan-500 mr-4 shadow-[0_0_5px_cyan]"></span>

@@ -1,3 +1,4 @@
+
 import * as Tone from 'tone';
 import { InstrumentRole, ConductorState, InstrumentPreset, AudioSettings } from '../types';
 
@@ -147,19 +148,51 @@ class AudioEngine {
                   });
               }
               break;
+              
           case InstrumentRole.PIANO:
-              if (preset === 'electric') {
-                  this.pianoSynth?.set({
-                      oscillator: { type: "pulse" },
-                      envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 1 }
-                  });
-              } else {
-                  this.pianoSynth?.set({
-                    oscillator: { type: "triangle" },
-                    envelope: { attack: 0.02, decay: 0.5, sustain: 0.1, release: 1.2 }
-                  });
+              // Reset standard params first
+              this.pianoSynth?.releaseAll();
+              
+              switch(preset) {
+                  case 'electric': // Rhodes-ish
+                      this.pianoSynth?.set({
+                          oscillator: { type: "pulse" },
+                          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 1 }
+                      });
+                      break;
+                  case 'organ': // Vintage Organ
+                      this.pianoSynth?.set({
+                          oscillator: { type: "triangle6" }, // Thicker triangle
+                          envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.8 }
+                      });
+                      break;
+                  case 'chiptune': // 8-Bit
+                      this.pianoSynth?.set({
+                          oscillator: { type: "square" },
+                          envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.01 }
+                      });
+                      break;
+                  case 'vibraphone': // Glassy
+                      this.pianoSynth?.set({
+                           oscillator: { type: "sine" },
+                           envelope: { attack: 0.01, decay: 1.5, sustain: 0, release: 1.5 }
+                      });
+                      break;
+                  case 'synth': // Basic Saw Lead
+                      this.pianoSynth?.set({
+                          oscillator: { type: "sawtooth" },
+                          envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.8 }
+                      });
+                      break;
+                  default: // Acoustic / Grand
+                      this.pianoSynth?.set({
+                        oscillator: { type: "triangle" },
+                        envelope: { attack: 0.02, decay: 0.5, sustain: 0.1, release: 1.2 }
+                      });
+                      break;
               }
               break;
+
           case InstrumentRole.GUITAR:
             if (preset === 'electric') {
                 this.guitarSynth?.set({
@@ -174,6 +207,7 @@ class AudioEngine {
                 });
             }
             break;
+
         case InstrumentRole.BASS:
             if (preset === 'electronic') {
                 // Sub Bass
@@ -217,6 +251,35 @@ class AudioEngine {
         const now = Tone.now();
         this.guitarSynth?.triggerAttackRelease(['C2', 'G2'], "32n", now, 0.3);
     }
+  }
+
+  public previewNote(role: InstrumentRole) {
+      if (!this.isReady) return;
+      const now = Tone.now();
+
+      switch(role) {
+          case InstrumentRole.DRUMS:
+              // Play a quick kick-snare-kick
+              this.drumSynth?.triggerAttackRelease("C1", "8n", now);
+              this.drumSynth?.triggerAttackRelease("C3", "8n", now + 0.15);
+              this.drumSynth?.triggerAttackRelease("C1", "8n", now + 0.3);
+              break;
+          case InstrumentRole.PIANO:
+              // Play a major triad
+              this.pianoSynth?.triggerAttackRelease(["C4", "E4", "G4"], "8n", now);
+              break;
+          case InstrumentRole.GUITAR:
+              // Play a strum
+              this.guitarSynth?.triggerAttackRelease("C3", "8n", now);
+              this.guitarSynth?.triggerAttackRelease("E3", "8n", now + 0.05);
+              this.guitarSynth?.triggerAttackRelease("G3", "8n", now + 0.1);
+              break;
+          case InstrumentRole.BASS:
+              // Play a funky slap line
+              this.bassSynth?.triggerAttackRelease("C2", "8n", now);
+              this.bassSynth?.triggerAttackRelease("C3", "16n", now + 0.2);
+              break;
+      }
   }
 
   public triggerNote(role: InstrumentRole, velocity: number, yPosition: number, xPosition: number = 0.5) {

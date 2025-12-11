@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { InstrumentRole, InstrumentPreset, AudioSettings } from '../types';
 import { audioEngine } from '../utils/audio';
@@ -29,9 +30,9 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onClose }) => {
     }) : null);
   };
 
-  const handlePresetChange = (role: InstrumentRole, preset: InstrumentPreset) => {
+  const handlePresetSelect = (role: InstrumentRole, preset: InstrumentPreset) => {
+    // Commit the change
     audioEngine.setPreset(role, preset);
-    
     setSettings(prev => prev ? ({
         ...prev,
         presets: {
@@ -39,6 +40,23 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onClose }) => {
             [role]: preset
         }
     }) : null);
+    
+    // Play preview
+    audioEngine.previewNote(role);
+  };
+
+  const handlePresetHover = (role: InstrumentRole, preset: InstrumentPreset) => {
+    // Temporarily switch the engine to the hovered preset so the preview sounds correct
+    audioEngine.setPreset(role, preset);
+    audioEngine.previewNote(role);
+  };
+
+  const handlePresetLeave = (role: InstrumentRole) => {
+    // Revert the engine back to the actually selected preset in state
+    // This ensures we don't accidentally leave the engine on a hovered preset
+    if (settings) {
+        audioEngine.setPreset(role, settings.presets[role]);
+    }
   };
 
   // Instrument Metadata
@@ -56,7 +74,11 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onClose }) => {
         label: 'Piano', 
         presets: [
             { id: 'acoustic', name: 'Grand Piano' },
-            { id: 'electric', name: 'Rhodes / Electric' }
+            { id: 'electric', name: 'Rhodes / Electric' },
+            { id: 'organ', name: 'Vintage Organ' },
+            { id: 'synth', name: 'Synth Lead' },
+            { id: 'vibraphone', name: 'Glassy Vibes' },
+            { id: 'chiptune', name: '8-Bit Arcade' }
         ] 
     },
     { 
@@ -150,7 +172,9 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onClose }) => {
                         return (
                             <button
                                 key={preset.id}
-                                onClick={() => handlePresetChange(activeTab, preset.id as InstrumentPreset)}
+                                onClick={() => handlePresetSelect(activeTab, preset.id as InstrumentPreset)}
+                                onMouseEnter={() => handlePresetHover(activeTab, preset.id as InstrumentPreset)}
+                                onMouseLeave={() => handlePresetLeave(activeTab)}
                                 className={`
                                     relative px-4 py-4 rounded-lg border transition-all text-sm uppercase font-bold text-left group
                                     ${isActive 

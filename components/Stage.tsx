@@ -7,6 +7,9 @@ import { audioEngine } from '../utils/audio';
 declare global {
   interface Window {
     vision: any;
+    drawConnectors: any;
+    drawLandmarks: any;
+    HAND_CONNECTIONS: any;
   }
 }
 
@@ -23,11 +26,13 @@ interface HandState {
   y: number;
   x: number;
   lastTrigger: number;
+  lastNoteTime: number; // Track when the last actual note was played
   lastFrameTime: number; // To detect tracking loss and calc velocity
 }
 
 const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConductorState, onBack }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState("Initializing Vision...");
   const [lastVelocity, setLastVelocity] = useState(0);
   const [triggerVisual, setTriggerVisual] = useState(false); // Visual flash on hit
@@ -48,9 +53,10 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
       case InstrumentRole.DRUMS:
         return { 
           // DRUMSTICK SIMULATION:
-          // Requires a sharp, fast strike (snap).
-          threshold: 2.0, 
-          cooldown: 80,   // Very fast re-trigger for rolls
+          // Uses Index Finger Tip (8) to capture the "snap" of the wrist.
+          // Threshold 2.4 requires a sharp strike but captures fast rolls.
+          threshold: 2.4, 
+          cooldown: 45,   // Ultra-fast re-trigger for rolls
           triggerDir: 'down', // Gravity only
           muteThreshold: 0
         };
@@ -148,10 +154,10 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
           },
           runningMode: "VIDEO",
           numHands: 2,
-          // CRITICAL: Lower confidence thresholds to maintain tracking during fast/blurry motion
-          minHandDetectionConfidence: 0.3, 
-          minHandTrackingConfidence: 0.3,
-          minHandPresenceConfidence: 0.3,
+          // CRITICAL: Very low confidence thresholds to maintain tracking when face is present
+          minHandDetectionConfidence: 0.2, 
+          minHandTrackingConfidence: 0.2,
+          minHandPresenceConfidence: 0.2,
         });
 
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -176,14 +182,45 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
     };
 
     const predictWebcam = () => {
-        if (!handLandmarker || !videoRef.current) return;
+        if (!handLandmarker || !videoRef.current || !canvasRef.current) return;
         
         const nowInMs = Date.now();
         const startTimeMs = performance.now();
 
-        if (videoRef.current.currentTime !== lastTime.current) {
-            lastTime.current = videoRef.current.currentTime;
-            const results = handLandmarker.detectForVideo(videoRef.current, startTimeMs);
+        // Canvas Setup
+        const canvasCtx = canvasRef.current.getContext("2d");
+        const video = videoRef.current;
+        canvasRef.current.width = video.videoWidth;
+        canvasRef.current.height = video.videoHeight;
+
+        if (video.currentTime !== lastTime.current) {
+            lastTime.current = video.currentTime;
+            const results = handLandmarker.detectForVideo(video, startTimeMs);
+
+            if (canvasCtx) {
+                canvasCtx.save();
+                canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                
+                // Draw skeleton if found
+                if (results.landmarks) {
+                    for (const landmarks of results.landmarks) {
+                        if (window.drawConnectors && window.HAND_CONNECTIONS) {
+                             window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
+                                color: "#00FF00",
+                                lineWidth: 2
+                            });
+                        }
+                        if (window.drawLandmarks) {
+                            window.drawLandmarks(canvasCtx, landmarks, {
+                                color: "#00FFFF",
+                                lineWidth: 1,
+                                radius: 2
+                            });
+                        }
+                    }
+                }
+                canvasCtx.restore();
+            }
 
             if (results.landmarks) {
                 // Process EVERY detected hand
@@ -197,10 +234,10 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
 
     const processHand = (landmarks: any[], handIndex: number, timestamp: number) => {
         // --- TRACKING POINT SELECTION ---
-        // For Drums: Use Index Finger MCP (Knuckle - 5) instead of Tip (8).
-        // The tip blurs too much during fast strikes. The knuckle is more stable but still follows the "stick" motion.
-        // For Others: Use Wrist (0) for general stability.
-        const pointIndex = role === InstrumentRole.DRUMS ? 5 : 0;
+        // For Drums: Use Index Finger Tip (8) to simulate the tip of the stick. 
+        // This captures the wrist flick action better than the knuckle.
+        // For Others: Use Wrist (0) for stability.
+        const pointIndex = role === InstrumentRole.DRUMS ? 8 : 0;
         const point = landmarks[pointIndex];
         
         if (!point) return;
@@ -211,6 +248,7 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                 y: point.y, 
                 x: point.x, 
                 lastTrigger: 0,
+                lastNoteTime: 0,
                 lastFrameTime: timestamp 
             });
             return; 
@@ -221,8 +259,9 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
         // --- TRACKING LOSS RECOVERY ---
         const timeDiff = timestamp - state.lastFrameTime;
 
-        // 1. If tracking was lost for too long (> 250ms), reset physics to prevent teleporting velocity spikes
-        if (timeDiff > 250) {
+        // 1. If tracking was lost for too long (> 500ms), reset physics to prevent teleporting velocity spikes
+        // Increased from 250ms to handle face distraction better
+        if (timeDiff > 500) {
             state.y = point.y;
             state.x = point.x;
             state.lastFrameTime = timestamp;
@@ -255,7 +294,8 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
 
         // --- GUITAR MUTE LOGIC (Horizontal Swipe) ---
         if (role === InstrumentRole.GUITAR && muteThreshold > 0) {
-            if (Math.abs(velocityX) > muteThreshold) { 
+            // Only trigger mute if velocity is high AND a note was played recently (within 1.5s)
+            if (Math.abs(velocityX) > muteThreshold && (timestamp - state.lastNoteTime < 1500)) { 
                 audioEngine.triggerMute(role);
                 setIsMuted(true);
                 setTimeout(() => setIsMuted(false), 150);
@@ -297,7 +337,8 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
 
                 // Dynamic Velocity Curve for Drums (make hard hits louder)
                 if (role === InstrumentRole.DRUMS) {
-                     outputVelocity = Math.pow(outputVelocity, 0.8); 
+                     // Dynamics: Fast hits = Loud, Slow hits = Quiet (Expanded range)
+                     outputVelocity = Math.pow(outputVelocity, 1.2); 
                 }
 
                 // Fire Audio - Pass X coordinate for Spatial Drums
@@ -309,6 +350,7 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                 setTimeout(() => setTriggerVisual(false), 100);
 
                 state.lastTrigger = timestamp;
+                state.lastNoteTime = timestamp; // Record valid note trigger time
 
                 // Network Sync
                 if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -335,6 +377,8 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
             const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach(track => track.stop());
         }
+        // Clear hand history to prevent physics glitches when switching roles/configs
+        handStates.current.clear();
     };
   }, [role, config, roomId]); // Re-run if room changes
 
@@ -381,14 +425,20 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                 autoPlay 
                 playsInline 
                 muted 
-                className="w-full h-full object-cover transform -scale-x-100 opacity-60" 
+                className="absolute inset-0 w-full h-full object-cover transform -scale-x-100 opacity-60 z-0" 
+            />
+            
+            {/* DEBUG CANVAS: Draws Skeleton */}
+            <canvas 
+                ref={canvasRef} 
+                className="absolute inset-0 w-full h-full object-cover transform -scale-x-100 z-10 pointer-events-none"
             />
             
             {/* Action Feedback Overlay (Flash) */}
-            <div className={`absolute inset-0 bg-cyan-500/20 pointer-events-none transition-opacity duration-75 ${triggerVisual ? 'opacity-100' : 'opacity-0'}`}></div>
+            <div className={`absolute inset-0 bg-cyan-500/20 pointer-events-none transition-opacity duration-75 z-20 ${triggerVisual ? 'opacity-100' : 'opacity-0'}`}></div>
             
             {/* Mute Feedback Overlay (Red Flash) */}
-            <div className={`absolute inset-0 bg-red-500/30 pointer-events-none transition-opacity duration-75 ${isMuted ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`absolute inset-0 bg-red-500/30 pointer-events-none transition-opacity duration-75 z-20 ${isMuted ? 'opacity-100' : 'opacity-0'}`}>
                 <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-4xl font-bold text-white tracking-widest border-4 border-white p-2 transform -rotate-12">MUTE</span>
                 </div>
@@ -396,7 +446,7 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
 
             {/* DRUM VISUAL ZONES (Only show for Drums) */}
             {role === InstrumentRole.DRUMS && (
-                <div className="absolute inset-0 opacity-20 pointer-events-none">
+                <div className="absolute inset-0 opacity-20 pointer-events-none z-10">
                     <div className="absolute top-0 left-0 w-1/2 h-2/5 border-r border-b border-white/20 flex items-center justify-center text-xs uppercase">Hi-Hat</div>
                     <div className="absolute top-0 right-0 w-1/2 h-2/5 border-b border-white/20 flex items-center justify-center text-xs uppercase">Crash</div>
                     <div className="absolute top-[40%] left-0 w-[45%] h-[35%] border-r border-b border-white/20 flex items-center justify-center text-xs">Snare</div>
