@@ -12,14 +12,49 @@ interface TutorialHUDProps {
 }
 
 const quickTips: Record<InstrumentRole, string[]> = {
-  [InstrumentRole.DRUMS]: ["✊ Punch down to hit drums", "⬆️ High=cymbals, Low=kick", "💨 Faster=louder"],
-  [InstrumentRole.PIANO]: ["☝️ Tap down to play notes", "⬆️⬇️ Height=pitch", "🤚 Two hands=chords"],
-  [InstrumentRole.GUITAR]: ["👋 Strum vertically", "⬆️⬇️ Position=chord type", "↔️ Horizontal=palm mute"],
-  [InstrumentRole.BASS]: ["👆 Pluck up or down", "💪 Strong=louder", "🎵 Focus on rhythm"],
-  [InstrumentRole.THEREMIN]: ["⬆️⬇️ Vertical=pitch", "↔️ Horizontal=volume", "🌊 Smooth movements"],
-  [InstrumentRole.STRINGS]: ["👇 Gentle push=bow", "⬆️⬇️ Height=note", "🐢 Slow=sustained"],
-  [InstrumentRole.PADS]: ["🤚 Slow floating motions", "✨ Position=tone", "🧘 Be zen"],
-  [InstrumentRole.NONE]: ["Select an instrument"]
+  [InstrumentRole.DRUMS]: [
+    "🔔 Be the bells! Flick ☝️ finger DOWN sharply",
+    "🎄 Left→Right = Hi-Hat → Snare → Kick → Tom → Crash",
+    "💨 Faster flicks = louder 'DONG!'",
+    "🥁 Try: tap-tap-tap-TAP for the Carol rhythm!"
+  ],
+  [InstrumentRole.PIANO]: [
+    "🎹 Your 10 fingers = 10 piano keys!",
+    "🔔 TAP each finger DOWN independently",
+    "🎄 Higher hand = higher bells chiming",
+    "✨ Try: G-F#-G-E pattern for Carol melody!"
+  ],
+  [InstrumentRole.GUITAR]: [
+    "🎸 One hand frets, one hand strums",
+    "🔔 Swipe ☝️ LEFT→RIGHT for down strum",
+    "🎄 Hold Em chord for Carol of the Bells",
+    "💫 Quick strums on each beat = festive feel!"
+  ],
+  [InstrumentRole.BASS]: [
+    "🎻 Pluck with ☝️ finger - deep & steady",
+    "🔔 Low position = rumbling foundation",
+    "🎄 Quarter notes on E for Carol bass",
+    "✨ You're the 'DONG' in 'Ding Dong'!"
+  ],
+  [InstrumentRole.THEREMIN]: [
+    "〰️ Float your ☝️ finger through the air",
+    "🔔 UP/DOWN = pitch, LEFT/RIGHT = volume",
+    "🎄 Add gentle trembling for eerie vibrato",
+    "👻 Create ghostly bell sounds!"
+  ],
+  [InstrumentRole.STRINGS]: [
+    "🎼 Conduct with your ☝️ finger as baton",
+    "🔔 Sweep UP = swell, Push DOWN = accent",
+    "🎄 Build epic crescendos for the carol!",
+    "✨ Spread hands wide for full orchestra"
+  ],
+  [InstrumentRole.PADS]: [
+    "🌌 Open palm, spread fingers, float slowly",
+    "🔔 Move in slow circles like peaceful snow",
+    "🎄 Create shimmering bed of sound",
+    "🧘 You're the atmosphere behind the bells"
+  ],
+  [InstrumentRole.NONE]: ["🎄 Pick an instrument to join the Silent Orchestra!"]
 };
 
 const styles: Record<string, React.CSSProperties> = {
