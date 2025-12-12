@@ -362,6 +362,27 @@ const GhostHandGuide: React.FC<GhostHandGuideProps> = ({
                     0% { r: 40; opacity: 0.8; }
                     100% { r: 80; opacity: 0; }
                 }
+                @keyframes fingerTap {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-8px); }
+                }
+                @keyframes handBreathe {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.02); }
+                }
+                @keyframes fingerGlow {
+                    0%, 100% { filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6)); }
+                    50% { filter: drop-shadow(0 0 20px rgba(34, 211, 238, 1)); }
+                }
+                .ghost-hand {
+                    animation: handBreathe 2s ease-in-out infinite;
+                }
+                .finger-tap {
+                    animation: fingerTap 0.3s ease-in-out;
+                }
+                .finger-glow {
+                    animation: fingerGlow 1s ease-in-out infinite;
+                }
             `}</style>
         </>
     );
@@ -426,6 +447,7 @@ const GhostHandIcon: React.FC<{ x: number; y: number; gesture: string; scale: nu
 
     return (
         <g
+            className="ghost-hand"
             transform={`translate(${x}, ${y}) scale(${handScale})`}
             style={{ filter: 'drop-shadow(0 0 15px rgba(34, 211, 238, 0.9))' }}
         >
