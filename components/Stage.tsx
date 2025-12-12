@@ -19,7 +19,6 @@ import { aiAccompaniment } from '../utils/aiAccompaniment';
 import PlayerList from './PlayerList';
 import TutorialHUD from './TutorialHUD';
 import InstrumentGuide from './InstrumentGuide';
-import MusicTutorial from './MusicTutorial';
 import GhostHandGuide from './GhostHandGuide';
 
 // Declare MediaPipe globals (loaded via CDN)
@@ -54,22 +53,7 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
     const [lastGesture, setLastGesture] = useState<string>('');
     const [handsDetected, setHandsDetected] = useState<number>(0);
 
-    // Interactive Music Tutorial for first-time users
-    const [showMusicTutorial, setShowMusicTutorial] = useState(() => {
-        // Check if user has completed the tutorial for this instrument before
-        const key = `tutorial_completed_${role}`;
-        return localStorage.getItem(key) !== 'true';
-    });
-
-    const completeTutorial = () => {
-        localStorage.setItem(`tutorial_completed_${role}`, 'true');
-        setShowMusicTutorial(false);
-    };
-
-    const skipTutorial = () => {
-        setShowMusicTutorial(false);
-        // Don't save - will show again next time
-    };
+    // Ghost guide is the only tutorial now - simpler UX
 
     // Mock player data
     const [players, setPlayers] = useState([
@@ -89,6 +73,9 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
 
     // Canvas dimensions for ghost overlay
     const [canvasDimensions, setCanvasDimensions] = useState({ width: 640, height: 480 });
+
+    // Ghost controls rendered outside preview
+    const [ghostControls, setGhostControls] = useState<React.ReactElement | null>(null);
 
     const socketRef = useRef<WebSocket | null>(null);
 
@@ -474,14 +461,7 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                 <span className="text-xs font-bold tracking-widest uppercase">Leave Stage</span>
             </button>
 
-            {/* Interactive Music Tutorial for First-Time Users */}
-            {showMusicTutorial && (
-                <MusicTutorial
-                    instrument={role}
-                    onComplete={completeTutorial}
-                    onSkip={skipTutorial}
-                />
-            )}
+            {/* Music Tutorial removed - Ghost Guide is cleaner */}
 
             {/* Hands Detected Indicator */}
             <div className="absolute top-4 right-4 z-50 flex items-center space-x-2 bg-black/40 px-3 py-2 rounded-full backdrop-blur border border-white/10">
@@ -504,6 +484,13 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                         <span>{conductorState.mood}</span>
                     </div>
                 </div>
+
+                {/* Ghost Hand Guide Controls - OUTSIDE the video preview */}
+                {showGhostGuide && ghostControls && (
+                    <div className="w-full">
+                        {ghostControls}
+                    </div>
+                )}
 
                 {/* Camera View / Feedback */}
                 <div className={`relative w-full aspect-video bg-black rounded-xl overflow-hidden border-2 shadow-2xl transition-colors duration-100 ${triggerVisual ? 'border-cyan-400' : isMuted ? 'border-red-500' : 'border-white/10'}`}>
@@ -531,23 +518,16 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                         </div>
                     </div>
 
-                    {/* Ghost Hand Guide Overlay - AI plays melody, user follows the ghost */}
+                    {/* Ghost Hand Guide Overlay - ONLY ghost hands in preview */}
                     {showGhostGuide && (
                         <GhostHandGuide
                             instrument={role}
-                            isActive={showGhostGuide && !showMusicTutorial}
+                            isActive={showGhostGuide}
                             canvasWidth={canvasDimensions.width}
                             canvasHeight={canvasDimensions.height}
+                            onControlsRender={setGhostControls}
                         />
                     )}
-
-                    {/* Ghost Guide Toggle Button */}
-                    <button
-                        onClick={toggleGhostGuide}
-                        className="absolute bottom-4 right-4 z-50 bg-black/60 hover:bg-black/80 text-white px-3 py-2 rounded-full backdrop-blur border border-cyan-500/30 text-xs font-bold"
-                    >
-                        {showGhostGuide ? '👻 Hide Guide' : '👻 Show Guide'}
-                    </button>
 
                     {/* Instrument-specific Visual Zones */}
                     {role === InstrumentRole.DRUMS && (
