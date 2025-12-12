@@ -1,5 +1,4 @@
 import { Hands, Results, NormalizedLandmarkList } from '@mediapipe/hands';
-import { Camera } from '@mediapipe/camera_utils';
 
 // Hand landmark indices
 export const HandLandmarks = {

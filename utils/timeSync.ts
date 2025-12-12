@@ -206,7 +206,7 @@ export class TimeSync {
     /**
      * Schedule an action to happen at a specific global time
      */
-    scheduleAt(globalTime: number, callback: () => void): NodeJS.Timeout | number {
+    scheduleAt(globalTime: number, callback: () => void): number {
         const localTime = globalTime - this.serverOffset;
         const delay = localTime - Date.now();
 
@@ -215,7 +215,7 @@ export class TimeSync {
             return 0;
         }
 
-        return setTimeout(callback, delay);
+        return window.setTimeout(callback, delay) as unknown as number;
     }
 
     /**

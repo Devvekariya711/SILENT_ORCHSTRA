@@ -65,7 +65,7 @@ class AIAutoAccompaniment {
     private aiFillVolume: number = 0;
     private currentRole: InstrumentRole = InstrumentRole.NONE;
     private patternIndex: number = 0;
-    private loopInterval: NodeJS.Timeout | null = null;
+    private loopInterval: number | null = null;
     private tempo: number = 120;
 
     constructor(config: Partial<AIFillConfig> = {}) {
@@ -121,9 +121,9 @@ class AIAutoAccompaniment {
         if (!this.config.enabled) return;
 
         // Check every 500ms if AI should kick in
-        this.loopInterval = setInterval(() => {
+        this.loopInterval = window.setInterval(() => {
             this.checkAndTrigger();
-        }, 500);
+        }, 500) as unknown as number;
     }
 
     /**
