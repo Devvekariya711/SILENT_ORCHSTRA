@@ -1,5 +1,15 @@
 import { Hands, Results, NormalizedLandmarkList } from '@mediapipe/hands';
 
+// Camera is loaded from CDN in index.html - declare type for it
+declare const Camera: new (videoElement: HTMLVideoElement, options: {
+    onFrame: () => Promise<void>;
+    width: number;
+    height: number;
+}) => {
+    start: () => Promise<void>;
+    stop: () => void;
+};
+
 // Hand landmark indices
 export const HandLandmarks = {
     WRIST: 0,
@@ -66,7 +76,7 @@ interface PreviousHandData {
 
 export class TwoHandGestureDetector {
     private hands: Hands | null = null;
-    private camera: Camera | null = null;
+    private camera: InstanceType<typeof Camera> | null = null;
     private callback: (data: TwoHandGestureData) => void;
     private previousLeftHand: PreviousHandData | null = null;
     private previousRightHand: PreviousHandData | null = null;
