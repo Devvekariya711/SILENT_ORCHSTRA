@@ -95,8 +95,8 @@ export class TwoHandGestureDetector {
             this.hands.setOptions({
                 maxNumHands: 2,              // Track both hands
                 modelComplexity: 1,          // 0=lite (fastest), 1=full (balanced), 2=heavy (most accurate)
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7,
+                minDetectionConfidence: 0.3, // LOWERED for fast movements
+                minTrackingConfidence: 0.3,  // LOWERED for fast movements
             });
 
             this.hands.onResults((results) => this.onResults(results));

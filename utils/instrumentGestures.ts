@@ -1,5 +1,6 @@
 import { TwoHandGestureData, HandData, Vector3D } from './handsGestures';
 import { InstrumentRole } from '../types';
+import { shouldTriggerNote, tryTrigger, COOLDOWN_MS, isValidTap } from './triggerControl';
 
 // ========== DRUM GESTURE HANDLER ==========
 export interface DrumHitEvent {
@@ -11,9 +12,8 @@ export interface DrumHitEvent {
 }
 
 export class DrumGestureHandler {
-    private lastHitTime = { left: 0, right: 0 };
-    private readonly HIT_COOLDOWN = 60; // ms - reduced for faster rolls
     private readonly VELOCITY_THRESHOLD = 1.2; // Lowered for better sensitivity
+    private lastDrumZone: Record<string, number> = {}; // Track last hit zone per hand
 
     public process(data: TwoHandGestureData): DrumHitEvent[] {
         const events: DrumHitEvent[] = [];
@@ -24,34 +24,46 @@ export class DrumGestureHandler {
             if (!hand) return;
 
             const handSide = hand.handedness === 'Left' ? 'left' : 'right';
-
-            // Cooldown check
-            if (now - this.lastHitTime[handSide] < this.HIT_COOLDOWN) {
-                return;
-            }
+            const triggerId = `drum-${handSide}`;
 
             // Use INDEX FINGER velocity (like a drumstick tip)
             const indexFinger = hand.fingers.index;
             const fingerVelocity = indexFinger.velocity.y;
+            const indexTip = indexFinger.tip;
+
+            // Get drum zone index for retrigger detection
+            const drumZoneIndex = this.getDrumZoneIndex(indexTip.x);
 
             // Detect sharp DOWNWARD motion of index finger (drumstick hit)
-            // Positive Y velocity = moving down in screen coordinates
+            // Use combined: velocity threshold + cooldown + zone change detection
             if (fingerVelocity > this.VELOCITY_THRESHOLD) {
-                this.lastHitTime[handSide] = now;
+                // Only trigger if cooldown passed OR zone changed
+                const zoneChanged = this.lastDrumZone[handSide] !== drumZoneIndex;
+                const canTriggerNow = tryTrigger(triggerId, 'drums');
 
-                const indexTip = indexFinger.tip;
+                if (canTriggerNow || zoneChanged) {
+                    this.lastDrumZone[handSide] = drumZoneIndex;
 
-                events.push({
-                    drumType: this.getDrumType(indexTip.x),
-                    velocity: Math.min(1.0, fingerVelocity / 5.0), // Normalize to 0-1
-                    timestamp: now,
-                    hand: handSide,
-                    position: { x: indexTip.x, y: indexTip.y }
-                });
+                    events.push({
+                        drumType: this.getDrumType(indexTip.x),
+                        velocity: Math.min(1.0, fingerVelocity / 5.0), // Normalize to 0-1
+                        timestamp: now,
+                        hand: handSide,
+                        position: { x: indexTip.x, y: indexTip.y }
+                    });
+                }
             }
         });
 
         return events;
+    }
+
+    private getDrumZoneIndex(xPosition: number): number {
+        if (xPosition < 0.2) return 0;
+        if (xPosition < 0.4) return 1;
+        if (xPosition < 0.6) return 2;
+        if (xPosition < 0.8) return 3;
+        return 4;
     }
 
     private getDrumType(xPosition: number): DrumHitEvent['drumType'] {
@@ -78,8 +90,8 @@ export interface PianoKeyEvent {
 export class PianoGestureHandler {
     private activeKeys = new Set<string>();
     private readonly KEYS_PER_HAND = 6; // Each hand covers 6 keys (half octave)
-    private readonly TAP_THRESHOLD = 0.15; // Y distance considered a "tap"
     private readonly TAP_VELOCITY_THRESHOLD = 0.5; // Lowered for better sensitivity
+    private lastKeyPerFinger: Record<string, number> = {}; // Track last key per finger for retrigger
 
     public process(data: TwoHandGestureData): PianoKeyEvent[] {
         const events: PianoKeyEvent[] = [];
@@ -106,11 +118,19 @@ export class PianoGestureHandler {
                 if (isTapping) {
                     const keyIndex = this.getKeyIndex(finger.tip.x, handSide);
                     const keyId = `${handSide}-${fingerName}-${keyIndex}`;
+                    const fingerId = `${handSide}-${fingerName}`;
 
                     currentActiveKeys.add(keyId);
 
-                    // Detect "press" (newly active key)
-                    if (!this.activeKeys.has(keyId)) {
+                    // Use note retrigger detection: only trigger if key changed OR cooldown passed
+                    const lastKey = this.lastKeyPerFinger[fingerId];
+                    const keyChanged = lastKey !== keyIndex;
+                    const canTriggerNow = tryTrigger(fingerId, 'piano');
+
+                    // Detect "press" (newly active key OR key changed)
+                    if (!this.activeKeys.has(keyId) && (keyChanged || canTriggerNow)) {
+                        this.lastKeyPerFinger[fingerId] = keyIndex;
+
                         events.push({
                             type: 'press',
                             keyId,

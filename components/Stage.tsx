@@ -19,7 +19,15 @@ import { aiAccompaniment } from '../utils/aiAccompaniment';
 import PlayerList from './PlayerList';
 import TutorialHUD from './TutorialHUD';
 import InstrumentGuide from './InstrumentGuide';
-import GhostHandGuide from './GhostHandGuide';
+import NewTutorial from './NewTutorial';
+import PianoKeyboard, { getKeyFromX } from './PianoKeyboard';
+import {
+    PianoVisual,
+    DrumVisual,
+    GuitarVisual,
+    ThereminVisual,
+    PadsVisual
+} from './instruments';
 
 // Declare MediaPipe globals (loaded via CDN)
 declare global {
@@ -52,6 +60,16 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
     const [showTutorial, setShowTutorial] = useState(false);
     const [lastGesture, setLastGesture] = useState<string>('');
     const [handsDetected, setHandsDetected] = useState<number>(0);
+    const [activePianoKey, setActivePianoKey] = useState<number | null>(null);
+
+    // NEW: State for SVG visual instruments
+    const [activePianoKeys, setActivePianoKeys] = useState<Set<number>>(new Set());
+    const [activeDrum, setActiveDrum] = useState<string | null>(null);
+    const [activeGuitarString, setActiveGuitarString] = useState<number | null>(null);
+    const [thereminPosition, setThereminPosition] = useState<{ x: number, y: number } | null>(null);
+    const [thereminPitch, setThereminPitch] = useState(0);
+    const [thereminVolume, setThereminVolume] = useState(0);
+    const [activePad, setActivePad] = useState<number | null>(null);
 
     // Ghost guide is the only tutorial now - simpler UX
 
@@ -197,20 +215,37 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
     };
 
     const handlePiano = (events: PianoKeyEvent[], data: TwoHandGestureData, timestamp: number) => {
+        // Update active key based on hand position
+        const hand = data.rightHand || data.leftHand;
+        if (hand) {
+            const xPos = hand.landmarks[8].x;  // Index finger tip X
+            const keyIndex = getKeyFromX(xPos);
+            setActivePianoKey(keyIndex);
+        }
+
         events.forEach(event => {
             if (event.type === 'press') {
-                // Map keyIndex to Y position for pitch
-                const yPos = 1 - (event.keyIndex / 12);
-                audioEngine.triggerNote(InstrumentRole.PIANO, event.velocity, yPos, 0.5);
+                // Use X position for key selection (8 keys)
+                const hand = data.rightHand || data.leftHand;
+                const xPos = hand ? hand.landmarks[8].x : 0.5;
+                const keyIndex = getKeyFromX(xPos);
 
-                updateSpatialAudio(InstrumentRole.PIANO, 0.5, yPos, event.velocity);
+                // Map to Y for pitch (higher key = higher pitch)
+                const yPos = 1 - (keyIndex / 8);
+                audioEngine.triggerNote(InstrumentRole.PIANO, event.velocity, yPos, xPos);
+
+                updateSpatialAudio(InstrumentRole.PIANO, xPos, yPos, event.velocity);
 
                 setLastVelocity(event.velocity);
+                setActivePianoKey(keyIndex);  // Highlight the pressed key
                 setTriggerVisual(true);
-                setTimeout(() => setTriggerVisual(false), 100);
-                setLastGesture(`Key ${event.keyIndex} - ${event.finger}`);
+                setTimeout(() => {
+                    setTriggerVisual(false);
+                    setActivePianoKey(null);  // Clear after a short delay
+                }, 200);
+                setLastGesture(`Key ${keyIndex + 1} - ${event.finger}`);
 
-                sendNetworkUpdate(event.velocity, 0.5, yPos, `key-${event.keyIndex}`, timestamp);
+                sendNetworkUpdate(event.velocity, xPos, yPos, `key-${keyIndex}`, timestamp);
             }
         });
     };
@@ -518,9 +553,9 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                         </div>
                     </div>
 
-                    {/* Ghost Hand Guide Overlay - ONLY ghost hands in preview */}
+                    {/* New Tutorial Overlay - Clear Instructions */}
                     {showGhostGuide && (
-                        <GhostHandGuide
+                        <NewTutorial
                             instrument={role}
                             isActive={showGhostGuide}
                             canvasWidth={canvasDimensions.width}
@@ -529,27 +564,91 @@ const Stage: React.FC<StageProps> = ({ role, roomId, conductorState, setConducto
                         />
                     )}
 
-                    {/* Instrument-specific Visual Zones */}
+                    {/* NEW SVG INSTRUMENT VISUALS */}
+
+                    {/* Drums - SVG drum kit with wobble */}
                     {role === InstrumentRole.DRUMS && (
-                        <div className="absolute inset-0 opacity-20 pointer-events-none z-10">
-                            <div className="absolute top-0 left-0 w-1/2 h-2/5 border-r border-b border-white/20 flex items-center justify-center text-xs uppercase">Hi-Hat</div>
-                            <div className="absolute top-0 right-0 w-1/2 h-2/5 border-b border-white/20 flex items-center justify-center text-xs uppercase">Crash</div>
-                            <div className="absolute top-[40%] left-0 w-[45%] h-[35%] border-r border-b border-white/20 flex items-center justify-center text-xs">Snare</div>
-                            <div className="absolute top-[40%] left-[45%] w-[10%] h-[35%] border-r border-b border-white/20 flex items-center justify-center text-xs">Tom</div>
-                            <div className="absolute top-[40%] right-0 w-[45%] h-[35%] border-b border-white/20 flex items-center justify-center text-xs uppercase">Floor Tom</div>
-                            <div className="absolute bottom-0 left-0 w-full h-1/4 flex items-center justify-center text-xs uppercase bg-white/5">Kick</div>
-                        </div>
+                        <DrumVisual
+                            activeDrum={activeDrum}
+                            onDrumHit={(drumType, velocity) => {
+                                // This is for click/touch interaction
+                                audioEngine.triggerNote(InstrumentRole.DRUMS, velocity, 0.5, 0.5);
+                            }}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
                     )}
 
+                    {/* Piano - SVG keyboard */}
+                    {role === InstrumentRole.PIANO && (
+                        <PianoVisual
+                            activeKeys={activePianoKey !== null ? new Set([activePianoKey]) : new Set()}
+                            onKeyPress={(keyIndex, velocity) => {
+                                // This is for click/touch interaction
+                                audioEngine.triggerNote(InstrumentRole.PIANO, velocity, 1 - (keyIndex / 8), keyIndex / 8);
+                            }}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
+                    )}
+
+                    {/* Guitar - SVG guitar with vibrating strings */}
+                    {role === InstrumentRole.GUITAR && (
+                        <GuitarVisual
+                            activeString={activeGuitarString}
+                            onStrum={(stringIndex, velocity) => {
+                                audioEngine.triggerNote(InstrumentRole.GUITAR, velocity, stringIndex / 6, 0.5);
+                            }}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
+                    )}
+
+                    {/* Bass - Uses guitar visual */}
+                    {role === InstrumentRole.BASS && (
+                        <GuitarVisual
+                            activeString={activeGuitarString}
+                            onStrum={(stringIndex, velocity) => {
+                                audioEngine.triggerNote(InstrumentRole.BASS, velocity, stringIndex / 6, 0.5);
+                            }}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
+                    )}
+
+                    {/* Theremin - Electromagnetic field with glow */}
                     {role === InstrumentRole.THEREMIN && (
-                        <div className="absolute inset-0 opacity-30 pointer-events-none z-10">
-                            <div className="absolute left-0 top-0 h-full w-8 bg-gradient-to-r from-purple-500/50 to-transparent flex items-center">
-                                <span className="text-xs -rotate-90 text-white whitespace-nowrap">LOW PITCH</span>
-                            </div>
-                            <div className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-cyan-500/50 to-transparent flex items-center justify-end">
-                                <span className="text-xs -rotate-90 text-white whitespace-nowrap">HIGH PITCH</span>
-                            </div>
-                        </div>
+                        <ThereminVisual
+                            handPosition={thereminPosition}
+                            pitch={thereminPitch}
+                            volume={thereminVolume}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
+                    )}
+
+                    {/* Strings - Uses guitar visual for now */}
+                    {role === InstrumentRole.STRINGS && (
+                        <GuitarVisual
+                            activeString={activeGuitarString}
+                            onStrum={(stringIndex, velocity) => {
+                                audioEngine.triggerNote(InstrumentRole.STRINGS, velocity, stringIndex / 6, 0.5);
+                            }}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
+                    )}
+
+                    {/* Pads - Hexagonal pad grid */}
+                    {role === InstrumentRole.PADS && (
+                        <PadsVisual
+                            activePad={activePad}
+                            onPadPress={(padIndex, velocity) => {
+                                audioEngine.triggerNote(InstrumentRole.PADS, velocity, padIndex / 16, 0.5);
+                            }}
+                            canvasWidth={canvasDimensions.width}
+                            canvasHeight={canvasDimensions.height}
+                        />
                     )}
 
                     {/* Velocity Meter */}

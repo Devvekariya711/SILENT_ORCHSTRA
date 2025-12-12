@@ -7,6 +7,7 @@ const SCALES: Record<string, string[]> = {
     'major': ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4'],
     'minor': ['C3', 'D3', 'Eb3', 'F3', 'G3', 'Ab3', 'Bb3', 'C4'],
     'pentatonic': ['C3', 'D3', 'E3', 'G3', 'A3', 'C4'],
+    'carol': ['E3', 'F#3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4'], // E Minor for Carol of the Bells
 };
 
 // Open Chords for Guitar (Open Tuning emulation)
@@ -164,6 +165,14 @@ class AudioEngine {
         this.currentVolumes[role] = db;
         if (this.volumeNodes && this.volumeNodes[role]) {
             this.volumeNodes[role].volume.rampTo(db, 0.1);
+        }
+    }
+
+    public setScale(scaleName: string) {
+        if (SCALES[scaleName]) {
+            this.currentScale = SCALES[scaleName];
+            this.currentScaleName = scaleName;
+            console.log(`AudioEngine: Switched to ${scaleName} scale`);
         }
     }
 
@@ -463,8 +472,10 @@ class AudioEngine {
                 break;
 
             case InstrumentRole.THEREMIN:
-                // Theremin - continuous pitch based on Y position
-                const thereminNote = this.currentScale[Math.floor(yPosition * (this.currentScale.length - 1))];
+                // Theremin - continuous pitch based on Y position (inverted: top = high pitch)
+                const thereminNoteIndex = Math.floor((1 - yPosition) * (this.currentScale.length - 1));
+                const safeThereminIndex = Math.max(0, Math.min(thereminNoteIndex, this.currentScale.length - 1));
+                const thereminNote = this.currentScale[safeThereminIndex];
                 this.thereminSynth?.triggerAttackRelease(thereminNote, "4n", now, velocity);
                 break;
 
